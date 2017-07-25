@@ -1,0 +1,10 @@
+data/*
+*.pyc
+.project
+.cproject
+CMakeCache.txt
+CMakeFiles/*
+Debug/*
+Makefile
+*.cmake
+track_image
