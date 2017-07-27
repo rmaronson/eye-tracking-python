@@ -1,188 +1,15 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <list>
 #include <string>
 #include <stdexcept>
 #include <opencv2/opencv.hpp>
 #include <opencv2/tracking.hpp>
-
-typedef cv::Ptr<cv::Tracker> TrackerPtr;
-
-constexpr int BUF_LEN = 30;
+#include "buffered_video.hpp"
+#include "buffered_tracker.hpp"
 
 
-struct Frame {
-	Frame() : frame(), id() {};
-	Frame(Frame const & other) : frame(other.frame.clone()), id(other.id) {}
-	cv::Mat frame;
-	int id;
-};
-
-struct BufferedVideo {
-	BufferedVideo(char * filename) : buf_len(0), video(filename), frame_buffer(), current_frame(), last_id(-1) {
-	    // Check video is open
-	    if(!video.isOpened()) {
-	        throw std::runtime_error((std::string("Failed to open video: ") + std::string(filename)).c_str());
-	    }
-	}
-
-	Frame const & cur() {
-		if (this->current_frame != IteratorType()) {
-			return *this->current_frame;
-		} else {
-			if (this->load_next()) {
-				this->current_frame = this->frame_buffer.begin();
-				return *this->current_frame;
-			} else {
-				throw std::out_of_range("End of video");
-			}
-		}
-	}
-
-	Frame const & next() {
-		if (this->current_frame != this->frame_buffer.end()) {
-			--(this->current_frame);
-			if (this->current_frame != this->frame_buffer.end()) {
-				return *this->current_frame;
-			} else {
-				if (this->load_next()) {
-					this->current_frame = this->frame_buffer.begin();
-					return *this->current_frame;
-				} else {
-					++(this->current_frame);
-					throw std::out_of_range("End of video");
-				}
-			}
-		} else {
-			if (this->load_next()) {
-				this->current_frame = this->frame_buffer.begin();
-				return *this->current_frame;
-			} else {
-				throw std::out_of_range("End of video");
-			}
-		}
-	}
-
-	Frame const & prev() {
-		if (this->current_frame != this->frame_buffer.end()) {
-			++(this->current_frame);
-			if (this->current_frame != this->frame_buffer.end()) {
-				return *this->current_frame;
-			} else {
-				--(this->current_frame);
-				throw std::out_of_range("Past buffer");
-			}
-		} else {
-			throw std::out_of_range("Not initialized");
-		}
-	}
-
-private:
-
-	bool load_next() {
-		this->frame_buffer.emplace_front();
-//		std::cout << "Reading frame..." << std::endl;
-		bool read = this->video.read(this->frame_buffer.front().frame);
-		if (read) {
-			this->frame_buffer.front().id = ++this->last_id;
-			++(this->buf_len);
-			if (this->buf_len > BUF_LEN) {
-				this->frame_buffer.pop_back();
-			}
-		} else {
-			this->frame_buffer.pop_front();
-		}
-		return read;
-	}
-
-	int buf_len;
-	int last_id;
-	cv::VideoCapture video;
-	typedef std::list<Frame> ListType;
-	ListType frame_buffer;
-	typedef ListType::iterator IteratorType;
-	IteratorType current_frame;
-};
-
-const char * TRACKER_TYPE = "MIL";
-
-struct BufferedTracker {
-	BufferedTracker(std::string const & name) :
-		data(),
-		name(name) {
-		// empty
-	}
-
-	void init_tracker(Frame const & frame, cv::Rect2d const & bbox) {
-		if (frame.id > this->data.size()) {
-			throw std::out_of_range("can't create tracker for future frames");
-		} else {
-			this->data.resize(frame.id); // discard future data, since it's now invalid
-		}
-
-		this->data.emplace_back(TrackerData(bbox, cv::Tracker::create(TRACKER_TYPE)));
-		this->data.back().tracker->init(frame.frame, bbox);
-	}
-
-	void hold_tracker(Frame const & frame) {
-		if (frame.id > this->data.size()) {
-			throw std::out_of_range("can't create tracker for future frames");
-		} else {
-			this->data.resize(frame.id); // discard future data, since it's now invalid
-		}
-
-		this->data.emplace_back(cv::Rect2d(), TrackerPtr());
-
-	}
-
-	cv::Rect2d const & track(Frame const & frame) {
-		if (frame.id > this->data.size()) {
-			throw std::out_of_range("can't track future frames");
-		} else if (frame.id > -1 && frame.id < this->data.size()) {
-			return this->data[frame.id].bbox;
-		} else {
-
-			TrackerData next_data;
-			next_data.tracker = this->data.back().tracker;
-			if (next_data.tracker) {
-				next_data.tracker->update(frame.frame, next_data.bbox);
-			}
-			this->data.push_back(std::move(next_data));
-
-			return this->data.back().bbox;
-		}
-	}
-
-	void draw(Frame & frame, bool selected = false) {
-		cv::Rect2d const & bbox = this->track(frame);
-		if (bbox.width > 0 && bbox.height > 0) {
-			cv::Scalar color(255, 0, 0);
-			if (selected) {
-				color = cv::Scalar(0, 0, 255);
-			}
-			cv::rectangle(frame.frame, bbox, color, 2, 1 );
-			cv::putText(frame.frame, this->name, cv::Point2d(bbox.x, bbox.y+bbox.height), cv::FONT_HERSHEY_SCRIPT_SIMPLEX, 1, color);
-		}
-	}
-
-	void select_new_box(Frame const & frame) {
-		std::string win_name = std::string("Choose frame for ") + this->name;
-		cv::Rect2d bbox = cv::selectROI(win_name, frame.frame, true, false);
-		cv::destroyWindow(win_name);
-	    this->init_tracker(frame, bbox);
-	}
-
-private:
-	struct TrackerData {
-		TrackerData() : bbox(), tracker() {};
-		TrackerData(cv::Rect2d const & bbox, TrackerPtr && tracker) :
-			bbox(bbox), tracker(tracker) {};
-		cv::Rect2d bbox;
-		TrackerPtr tracker;
-	};
-	std::vector<TrackerData> data;
-	std::string name;
-};
 
 std::vector<BufferedTracker> create_trackers(Frame const & frame) {
     std::vector<cv::Rect2d> boxes;
@@ -207,6 +34,53 @@ std::vector<BufferedTracker> create_trackers(Frame const & frame) {
     return trackers;
 }
 
+std::string remove_extension(std::string const & filename) {
+    std::size_t lastdot = filename.find_last_of(".");
+    if (lastdot == std::string::npos) return filename;
+    return filename.substr(0, lastdot);
+}
+
+void save_tracking_info(std::vector<BufferedTracker> const & trackers, std::string const & filename) {
+	std::string outfile = remove_extension(filename) + std::string(".csv");
+	std::ofstream outstream(outfile.c_str());
+
+	outstream << "frame_id";
+	for (int i=0; i<trackers.size(); ++i) {
+		outstream << ",x" << i << ",y" << i << ",w" << i << ",h" << i;
+	}
+	outstream << std::endl;
+
+	bool cont = true;
+	for (int frame_id = 0; cont; ++frame_id) {
+		bool stop = true;
+		outstream << frame_id;
+		for (int i=0; i<trackers.size(); ++i) {
+			if (frame_id >= trackers[i].get_last_frame_id()) {
+				outstream << ",0,0,0,0";
+			} else {
+				stop = false;
+				cv::Rect2d const & bbox = trackers[i].get_bounding_box(frame_id);
+				outstream << "," << bbox.x << "," << bbox.y << ',' << bbox.width << "," << bbox.height;
+			}
+		}
+		outstream << '\n';
+		if (stop) cont = false;
+	}
+	outstream << std::flush;
+}
+
+//bool load_tracking_info(std::string const & filename, std::vector<BufferedTracker> & trackers) {
+//	std::istream instream(filename);
+//	std::string line;
+//	if (std::getline(instream, line, '\n')) {
+//		std::stringstream()
+//
+//	} else {
+//		return false;
+//	}
+//
+//}
+
 void display_frame(Frame const & frame, std::vector<BufferedTracker> & trackers, int selected = -1) {
 	Frame cur_frame(frame);
 	for (int i=0; i<trackers.size(); ++i) {
@@ -221,7 +95,7 @@ bool pause_mode(BufferedVideo & video, std::vector<BufferedTracker> & trackers) 
 	bool cont = true;
 	int selected = -1;
 	while (cont) {
-		std::cout << "Space (resume), Esc (quit), 0-9 (select window)" << std::endl;
+		std::cout << "Space (resume), Esc (quit), <- (prev frame), -> (next frame), 0-9 (select ROI)" << std::endl;
 		if (selected > 0) {
 			std::cout << "[r]eset box, [h]old region" << std::endl;
 		}
@@ -258,6 +132,12 @@ bool pause_mode(BufferedVideo & video, std::vector<BufferedTracker> & trackers) 
 		case 114: { // r
 			trackers[selected].select_new_box(video.cur());
 			display_frame(video.cur(), trackers, selected);
+			break;
+		}
+		case 115: { // s
+			std::cout << "Saving tracking info to file..." << std::flush;
+			save_tracking_info(trackers, video.get_filename());
+			std::cout << "done." << std::endl;
 			break;
 		}
 		case 48:
