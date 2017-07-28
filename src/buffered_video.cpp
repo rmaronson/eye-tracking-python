@@ -22,7 +22,9 @@ Frame const & BufferedVideo::cur() {
 }
 
 Frame const & BufferedVideo::next() {
-	if (this->current_frame != this->frame_buffer.end()) {
+    std::cout << "getting next frame" << std::endl;
+	if (this->current_frame != IteratorType()) {
+	    std::cout << "valid it, decrementing frame" << std::endl;
 		--(this->current_frame);
 		if (this->current_frame != this->frame_buffer.end()) {
 			return *this->current_frame;
@@ -36,6 +38,7 @@ Frame const & BufferedVideo::next() {
 			}
 		}
 	} else {
+	    std::cout << "invalid it, loading frame" << std::endl;
 		if (this->load_next()) {
 			this->current_frame = this->frame_buffer.begin();
 			return *this->current_frame;
@@ -66,7 +69,7 @@ std::string const & BufferedVideo::get_filename() const {
 
 bool BufferedVideo::load_next() {
 	this->frame_buffer.emplace_front();
-//		std::cout << "Reading frame..." << std::endl;
+	std::cout << "Reading frame..." << std::endl;
 	bool read = this->video.read(this->frame_buffer.front().frame);
 	if (read) {
 		this->frame_buffer.front().id = ++this->last_id;

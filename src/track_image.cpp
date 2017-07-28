@@ -1,85 +1,8 @@
 #include <iostream>
-#include <fstream>
-#include <vector>
-#include <list>
-#include <string>
-#include <stdexcept>
 #include <opencv2/opencv.hpp>
 #include <opencv2/tracking.hpp>
 #include "buffered_video.hpp"
 #include "buffered_tracker.hpp"
-
-
-
-std::vector<BufferedTracker> create_trackers(Frame const & frame) {
-    std::vector<cv::Rect2d> boxes;
-    cv::selectROI("Choose all frames", frame.frame, boxes, false);
-    cv::destroyWindow("Choose all frames");
-
-    // Initialize tracker with first frame and bounding box
-    std::vector<BufferedTracker> trackers;
-
-    std::for_each(boxes.begin(), boxes.end(), [&trackers, &frame] (cv::Rect2d const & box) {
-    	BufferedTracker tracker(std::to_string(trackers.size()));
-    	tracker.init_tracker(frame, box);
-    	trackers.push_back(tracker);
-    });
-    // Add empty trackers
-    for (int i=trackers.size(); i<10; ++i) {
-    	BufferedTracker tracker(std::to_string(trackers.size()));
-    	tracker.hold_tracker(frame);
-    	trackers.push_back(tracker);
-    }
-
-    return trackers;
-}
-
-std::string remove_extension(std::string const & filename) {
-    std::size_t lastdot = filename.find_last_of(".");
-    if (lastdot == std::string::npos) return filename;
-    return filename.substr(0, lastdot);
-}
-
-void save_tracking_info(std::vector<BufferedTracker> const & trackers, std::string const & filename) {
-	std::string outfile = remove_extension(filename) + std::string(".csv");
-	std::ofstream outstream(outfile.c_str());
-
-	outstream << "frame_id";
-	for (int i=0; i<trackers.size(); ++i) {
-		outstream << ",x" << i << ",y" << i << ",w" << i << ",h" << i;
-	}
-	outstream << std::endl;
-
-	bool cont = true;
-	for (int frame_id = 0; cont; ++frame_id) {
-		bool stop = true;
-		outstream << frame_id;
-		for (int i=0; i<trackers.size(); ++i) {
-			if (frame_id >= trackers[i].get_last_frame_id()) {
-				outstream << ",0,0,0,0";
-			} else {
-				stop = false;
-				cv::Rect2d const & bbox = trackers[i].get_bounding_box(frame_id);
-				outstream << "," << bbox.x << "," << bbox.y << ',' << bbox.width << "," << bbox.height;
-			}
-		}
-		outstream << '\n';
-		if (stop) cont = false;
-	}
-	outstream << std::flush;
-}
-
-//bool load_tracking_info(std::string const & filename, std::vector<BufferedTracker> & trackers) {
-//	std::istream instream(filename);
-//	std::string line;
-//	if (std::getline(instream, line, '\n')) {
-//		std::stringstream()
-//
-//	} else {
-//		return false;
-//	}
-//
-//}
 
 void display_frame(Frame const & frame, std::vector<BufferedTracker> & trackers, int selected = -1) {
 	Frame cur_frame(frame);
@@ -136,7 +59,7 @@ bool pause_mode(BufferedVideo & video, std::vector<BufferedTracker> & trackers) 
 		}
 		case 115: { // s
 			std::cout << "Saving tracking info to file..." << std::flush;
-			save_tracking_info(trackers, video.get_filename());
+			BufferedTracker::save_tracking_info(trackers, video.get_filename());
 			std::cout << "done." << std::endl;
 			break;
 		}
@@ -173,12 +96,14 @@ int main(int argc, char **argv)
     // Read video
     BufferedVideo video(argv[1]);
 
+    std::vector<BufferedTracker> trackers;
+    if (!BufferedTracker::load_tracking_info(argv[1], trackers)) {
+    	trackers = BufferedTracker::create_trackers(video.cur());
+    }
+    std::cout << "Load complete" << std::endl;
 
-    // Initialize tracker with first frame and bounding box
-    auto trackers = create_trackers(video.cur());
-
-    bool cont = true;
-
+	display_frame(video.next(), trackers);
+    bool cont = pause_mode(video, trackers);;
 	while (cont) {
 		try {
 			display_frame(video.next(), trackers);

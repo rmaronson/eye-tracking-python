@@ -37,7 +37,15 @@ struct BufferedTracker {
 
 	static constexpr char const * TRACKER_TYPE = "MIL";
 
+	static std::vector<BufferedTracker> create_trackers(Frame const & frame);
+
+	static void save_tracking_info(std::vector<BufferedTracker> const & trackers, std::string const & filename);
+	static bool load_tracking_info(std::string const & filename, std::vector<BufferedTracker> & trackers);
+
 private:
+
+	void add_bounding_box(int frame_id, cv::Rect2d && bbox);
+
 	std::vector<TrackerData> data;
 	std::string name;
 };
