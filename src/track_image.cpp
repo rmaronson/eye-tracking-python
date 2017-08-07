@@ -16,6 +16,7 @@ void display_frame(Frame const & frame, std::vector<BufferedTracker> & trackers,
 
 bool pause_mode(BufferedVideo & video, std::vector<BufferedTracker> & trackers) {
 	bool cont = true;
+	bool changed = true;
 	int selected = -1;
 	while (cont) {
 		std::cout << "Space (resume), Esc (quit), <- (prev frame), -> (next frame), 0-9 (select ROI)" << std::endl;
@@ -26,7 +27,17 @@ bool pause_mode(BufferedVideo & video, std::vector<BufferedTracker> & trackers) 
 //		std::cout << std::to_string(k) << std::endl;
 		switch (k) {
 		case 27: { // esc
-			return false;
+			if (changed) {
+				std::cout << "Close without saving? [y/n] " << std::flush;
+				int k = cv::waitKey(0);
+				if (k == 121) {
+					return false;
+				} else {
+					break;
+				}
+			} else {
+				return false;
+			}
 		}
 		case 32: { // space
 			return true;
@@ -42,25 +53,33 @@ bool pause_mode(BufferedVideo & video, std::vector<BufferedTracker> & trackers) 
 		case 3: { //right
 			try {
 				display_frame(video.next(), trackers, selected);
+				changed = true;
 			} catch (std::out_of_range & e) {
 				std::cout << "No more video!" << std::endl;
 			}
 			break;
 		}
 		case 104: { // h
-			trackers[selected].hold_tracker(video.cur());
-			display_frame(video.cur(), trackers, selected);
+			if (selected > -1) {
+				trackers[selected].hold_tracker(video.cur());
+				display_frame(video.cur(), trackers, selected);
+				changed = true;
+			}
 			break;
 		}
 		case 114: { // r
-			trackers[selected].select_new_box(video.cur());
-			display_frame(video.cur(), trackers, selected);
+			if (selected > -1) {
+				trackers[selected].select_new_box(video.cur());
+				display_frame(video.cur(), trackers, selected);
+				changed = true;
+			}
 			break;
 		}
 		case 115: { // s
 			std::cout << "Saving tracking info to file..." << std::flush;
 			BufferedTracker::save_tracking_info(trackers, video.get_filename());
 			std::cout << "done." << std::endl;
+			changed = false;
 			break;
 		}
 		case 48:
@@ -114,12 +133,17 @@ int main(int argc, char **argv)
 		int k = cv::waitKey(1);
 		switch (k) {
 		case 27: { // esc
-			cont = false;
+			std::cout << "Close without saving? [y/n] " << std::flush;
+			int k = cv::waitKey(0);
+			if (k == 121) {
+				cont = false;
+			}
 			break;
 		}
 
 		case 32: { // space
 			cont = pause_mode(video, trackers);
+			break;
 		}
 
 		}

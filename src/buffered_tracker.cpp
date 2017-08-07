@@ -11,13 +11,14 @@ BufferedTracker::BufferedTracker(std::string const & name) :
 }
 
 void BufferedTracker::init_tracker(Frame const & frame, cv::Rect2d const & bbox) {
+	std::cout << "Creating tracker for frame " << frame.id << ", bbox: " << bbox << std::endl;
 	if (frame.id > this->data.size()) {
 		throw std::out_of_range("can't create tracker for future frames");
 	} else {
 		this->data.resize(frame.id); // discard future data, since it's now invalid
 	}
 
-	this->data.emplace_back(TrackerData(bbox, cv::Tracker::create(TRACKER_TYPE)));
+	this->data.emplace_back(bbox, cv::Tracker::create(TRACKER_TYPE));
 	this->data.back().tracker->init(frame.frame, bbox);
 }
 
@@ -74,7 +75,12 @@ void BufferedTracker::select_new_box(Frame const & frame) {
 	std::string win_name = std::string("Choose frame for ") + this->name;
 	cv::Rect2d bbox = cv::selectROI(win_name, frame.frame, true, false);
 	cv::destroyWindow(win_name);
-	this->init_tracker(frame, bbox);
+	cv::Rect2d frame_bounds(0, 0, frame.frame.cols, frame.frame.rows);
+	std::cout << "Picked " << bbox << std::endl;
+	std::cout << "Frame bounds " << frame_bounds << std::endl;
+	cv::Rect2d fixed_rect = (bbox & frame_bounds);
+	std::cout << "Restricted rect: " << fixed_rect << std::endl;
+	this->init_tracker(frame, fixed_rect);
 }
 
 cv::Rect2d const & BufferedTracker::get_bounding_box(int frame_id) const {
@@ -89,13 +95,14 @@ std::vector<BufferedTracker> BufferedTracker::create_trackers(Frame const & fram
     std::vector<cv::Rect2d> boxes;
     cv::selectROI("Choose all frames", frame.frame, boxes, false);
     cv::destroyWindow("Choose all frames");
+	cv::Rect2d frame_bounds(0, 0, frame.frame.cols, frame.frame.rows);
 
     // Initialize tracker with first frame and bounding box
     std::vector<BufferedTracker> trackers;
 
-    std::for_each(boxes.begin(), boxes.end(), [&trackers, &frame] (cv::Rect2d const & box) {
+    std::for_each(boxes.begin(), boxes.end(), [&trackers, &frame, &frame_bounds] (cv::Rect2d const & box) {
     	BufferedTracker tracker(std::to_string(trackers.size()));
-    	tracker.init_tracker(frame, box);
+    	tracker.init_tracker(frame, box & frame_bounds);
     	trackers.push_back(tracker);
     });
     // Add empty trackers

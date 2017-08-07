@@ -68,12 +68,14 @@ std::string const & BufferedVideo::get_filename() const {
 
 
 bool BufferedVideo::load_next() {
-	this->frame_buffer.emplace_front();
+	Frame next_frame;
+
 	std::cout << "Reading frame..." << std::endl;
-	bool read = this->video.read(this->frame_buffer.front().frame);
+	bool read = this->video.read(next_frame.frame);
 	if (read) {
-		this->frame_buffer.front().id = ++this->last_id;
+		next_frame.id = ++this->last_id;
 		++(this->buf_len);
+		this->frame_buffer.push_front(std::move(next_frame));
 		if (this->buf_len > BUF_LEN) {
 			this->frame_buffer.pop_back();
 		}
