@@ -14,12 +14,19 @@ set(HEADERS
 set(SOURCES
     "src/buffered_tracker.cpp"
     "src/buffered_video.cpp"
-    "src/track_image.cpp"
 )
 
-add_executable( track_image ${HEADERS} ${SOURCES} )
-target_include_directories(track_image PUBLIC "include")
-message(STATUS "${OpenCV_INCLUDE_DIRS}")
-include_directories(${OpenCV_INCLUDE_DIRS})
-target_link_libraries( track_image ${OpenCV_LIBS} )
+add_library(track_image_lib ${HEADERS} ${SOURCES} )
 
+target_include_directories(track_image_lib PUBLIC "include" ${OpenCV_INCLUDE_DIRS})
+
+target_link_libraries( track_image_lib ${OpenCV_LIBS} )
+
+
+
+add_executable( track_image "src/track_image.cpp" )
+target_link_libraries( track_image track_image_lib )
+
+
+add_executable( extract_video "src/extract_video.cpp" )
+target_link_libraries( extract_video track_image_lib )

@@ -10,6 +10,7 @@ constexpr int BUF_LEN = 30;
 struct Frame {
 	Frame() : frame(), id() {};
 	Frame(Frame const & other) : frame(other.frame.clone()), id(other.id) {}
+	Frame(Frame && other) : frame(std::move(other.frame)), id(other.id) {}
 	cv::Mat frame;
 	std::size_t id;
 };
@@ -20,6 +21,8 @@ struct BufferedVideo {
 	Frame const & cur();
 	Frame const & next();
 	Frame const & prev();
+
+	double get_property(int val) const;
 
 	std::string const & get_filename() const;
 

@@ -80,7 +80,13 @@ void BufferedTracker::select_new_box(Frame const & frame) {
 	std::cout << "Frame bounds " << frame_bounds << std::endl;
 	cv::Rect2d fixed_rect = (bbox & frame_bounds);
 	std::cout << "Restricted rect: " << fixed_rect << std::endl;
-	this->init_tracker(frame, fixed_rect);
+
+	if (fixed_rect.area() > 0) {
+		this->init_tracker(frame, fixed_rect);
+	} else {
+		std::cout << "Invalid rect!" << std::endl;
+		this->select_new_box(frame);
+	}
 }
 
 cv::Rect2d const & BufferedTracker::get_bounding_box(int frame_id) const {

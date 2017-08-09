@@ -67,6 +67,11 @@ std::string const & BufferedVideo::get_filename() const {
 }
 
 
+double BufferedVideo::get_property(int val) const {
+	return this->video.get(val);
+}
+
+
 bool BufferedVideo::load_next() {
 	Frame next_frame;
 

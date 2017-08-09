@@ -122,7 +122,7 @@ int main(int argc, char **argv)
     std::cout << "Load complete" << std::endl;
 
 	display_frame(video.next(), trackers);
-    bool cont = pause_mode(video, trackers);;
+    bool cont = pause_mode(video, trackers);
 	while (cont) {
 		try {
 			display_frame(video.next(), trackers);
