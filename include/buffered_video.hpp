@@ -16,7 +16,7 @@ struct Frame {
 };
 
 struct BufferedVideo {
-	BufferedVideo(char * filename);
+	BufferedVideo(char const * const filename);
 
 	Frame const & cur();
 	Frame const & next();
