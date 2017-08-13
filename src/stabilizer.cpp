@@ -12,8 +12,8 @@ Stabilizer::Stabilizer() : transforms() {}
 
 cv::Mat Stabilizer::stabilize(Frame const & frame) const {
 
-	static std::size_t const offset_w = 500;
-	static std::size_t const offset_h = 500;
+	static std::size_t const offset_w = 400;
+	static std::size_t const offset_h = 200;
 
 //	std::cout << "Getting tf for " << frame.id << std::endl;
 
@@ -38,7 +38,7 @@ cv::Mat Stabilizer::stabilize(Frame const & frame) const {
 	return output;
 }
 
-std::string get_csv_filename(std::string const & filename) {
+std::string get_tf_filename(std::string const & filename) {
     std::size_t lastdot = filename.find_last_of(".");
     if (lastdot == std::string::npos) return filename;
     return filename.substr(0, lastdot) + std::string("_tf.csv");
@@ -46,8 +46,8 @@ std::string get_csv_filename(std::string const & filename) {
 
 
 boost::optional<Stabilizer> Stabilizer::load_from_file(std::string const & infile) {
-	std::ifstream instream(get_csv_filename(infile));
-	std::cout << "Loading file " << get_csv_filename(infile) << std::endl;
+	std::ifstream instream(get_tf_filename(infile));
+	std::cout << "Loading file " << get_tf_filename(infile) << std::endl;
 	std::string line;
 	std::getline(instream, line, '\n');
 
