@@ -12,6 +12,8 @@ set(HEADERS
     "include/buffered_video.hpp"
     "include/template_match.hpp"
     "include/robot_position.hpp"
+    "include/kalman_filter.hpp"
+    "include/stabilizer.hpp"
 )
 
 set(SOURCES
@@ -19,6 +21,8 @@ set(SOURCES
     "src/buffered_video.cpp"
     "src/template_match.cpp"
     "src/robot_position.cpp"
+    "src/kalman_filter.cpp"
+    "src/stabilizer.cpp"
 )
 
 add_library(track_image_lib ${HEADERS} ${SOURCES} )
@@ -45,3 +49,13 @@ target_link_libraries( template_match track_image_lib ${Boost_LIBRARIES} )
 
 add_executable(position_test "src/position_test.cpp")
 target_link_libraries( position_test track_image_lib ${Boost_LIBRARIES} )
+
+add_executable(convert_pnp "src/convert_pnp.cpp")
+target_link_libraries( convert_pnp track_image_lib ${Boost_LIBRARIES} )
+
+add_executable(kf_test "src/kf_test.cpp")
+target_link_libraries( kf_test track_image_lib ${Boost_LIBRARIES} )
+
+add_executable(stabilizer_test "src/stabilizer_test.cpp")
+target_link_libraries( stabilizer_test track_image_lib ${Boost_LIBRARIES} )
+

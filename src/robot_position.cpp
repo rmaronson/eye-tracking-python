@@ -98,7 +98,7 @@ boost::optional<RobotPositionData> RobotPositionData::load_from_file(std::string
 
 //		std::cout << data.data.begin()->second.data << std::endl;
 
-		return boost::optional<RobotPositionData>(data);
+		return boost::optional<RobotPositionData>(std::move(data));
 
 	} else {
 		return boost::optional<RobotPositionData>();
