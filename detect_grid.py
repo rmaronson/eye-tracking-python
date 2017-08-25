@@ -36,70 +36,75 @@ class GridDetector:
         
         self.detector = cv2.SimpleBlobDetector_create(params)
         
-    def get_grid(self, frame):
+    def get_grid(self, frame, animate=False):
         blobs = self.detector.detect(frame)
-        self.blobs = blobs
-        
+        results = {'blobs': [list(b.pt) for b in blobs]}
+                
         im_keypoints_only = np.zeros(frame.shape, dtype=frame.dtype)
     
         for key in blobs:
             int_pt = tuple([int(x) for x in key.pt])
             im_keypoints_only = cv2.circle(im_keypoints_only, int_pt, 0, (255,255,255), -1)
-
     
         lines = cv2.HoughLines(cv2.cvtColor(im_keypoints_only, cv2.COLOR_BGR2GRAY), 1, np.pi/180, 3, 40)
-        self.lines = lines
+        results['lines'] = lines.tolist() if lines is not None else None
         
         if lines is not None and len(lines) > 4:
 #             lines = get_line_pairs(lines)
             H, horz_idx, vert_idx, lines1, lines2 = get_rectification_ransac(np.array(lines))#, im_keypoints_only)
             
             if H is not None:
+                results['H'] = H.tolist()
                 all_pts = np.array([[key.pt for key in blobs]])
                 rect_pts = np.squeeze(cv2.perspectiveTransform(all_pts, H))
                 
                 inliers_guess = get_inlier_guess(rect_pts, horz_idx, vert_idx, lines1, lines2, radius_multiple=5)
-                
-#                 inliers, grid_vals, grid_spacing = fit_grid(rect_pts, horz_idx, vert_idx, lines1, lines2)
-                inliers, grid_vals, grid_spacing = fit_grid_ransac(rect_pts[inliers_guess,:], N=500, tol=0.1)
-#                 print inliers, inliers_guess
-                inliers = [inliers_guess[il] for il in inliers]
+                results['inliers_guess'] = inliers_guess
+                if len(inliers_guess) > 3:
                     
-                im_rect = np.zeros(frame.shape, dtype=frame.dtype)
-                im_orig = None
-                
-                if inliers is not None:
-                    for rect_idx in inliers:
-                        p0 = tuple([int(r) for r in (rect_pts[rect_idx])])
-                        px = tuple([int(r) for r in (rect_pts[rect_idx] + [grid_spacing[0], 0] )])
-                        py = tuple([int(r) for r in (rect_pts[rect_idx] + [0, grid_spacing[1]] )])
-                        im_rect = cv2.circle(im_rect, p0, 3, (255,255,255), -1)
-                        im_rect = cv2.line(im_rect, p0, px, (0,255,0))
-                        im_rect = cv2.line(im_rect, p0, py, (0,255,0))
+    #                 inliers, grid_vals, grid_spacing = fit_grid(rect_pts, horz_idx, vert_idx, lines1, lines2)
+                    inliers, grid_vals, grid_spacing = fit_grid_ransac(rect_pts[inliers_guess,:], N=500, tol=0.1)
+    #                 print inliers, inliers_guess
+                    inliers = [inliers_guess[il] for il in inliers]
+                    results['inliers'] = inliers
+                    results['grid_vals'] = grid_vals.tolist()
+                    results['grid_spacing'] = grid_spacing.tolist()
                         
-                    if grid_vals is not None:
-                        im_orig = np.array(frame, copy=True)
-                        im_orig = cv2.drawKeypoints(im_orig, blobs, im_orig, (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-                        im_orig = cv2.drawKeypoints(im_orig, [blobs[i] for i in inliers_guess], im_orig, (255,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-#                         im_orig = cv2.drawKeypoints(im_orig, [blobs[i] for i in inliers], im_orig, (255,0,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-                        for idx in range(len(inliers)):
-                            rect_idx = inliers[idx]
-                            p0 = tuple([int(r) for r in (rect_pts[rect_idx])])
-                            label = str(int(grid_vals[idx,0])) + ',' + str(int(grid_vals[idx,1]))
-                            im_rect = cv2.putText(im_rect, label, p0, cv2.FONT_HERSHEY_PLAIN, 1, (255,255,255))
-                            
-                            p0_orig = tuple(int(r) for r in blobs[rect_idx].pt)
-                            im_orig = cv2.putText(im_orig, label, p0_orig, cv2.FONT_HERSHEY_PLAIN, 1, (0,0,255))
-                            im_orig = cv2.circle(im_orig, p0_orig, 5, (0,0,255),1)
+                    im_rect = np.zeros(frame.shape, dtype=frame.dtype)
+                    im_orig = None
                     
-                    cv2.imshow("Rectified dots", im_rect)
-                    if im_orig is not None:
-                        cv2.imshow("Grid points", im_orig)
-                    cv2.waitKey()
-                    
-                    if grid_vals is not None:
-                        return [blobs[il].pt for il in inliers], grid_vals
-        return None, None
+                    if inliers is not None:
+                        if animate:
+                            for rect_idx in inliers:
+                                p0 = tuple([int(r) for r in (rect_pts[rect_idx])])
+                                px = tuple([int(r) for r in (rect_pts[rect_idx] + [grid_spacing[0], 0] )])
+                                py = tuple([int(r) for r in (rect_pts[rect_idx] + [0, grid_spacing[1]] )])
+                                im_rect = cv2.circle(im_rect, p0, 3, (255,255,255), -1)
+                                im_rect = cv2.line(im_rect, p0, px, (0,255,0))
+                                im_rect = cv2.line(im_rect, p0, py, (0,255,0))          
+                            if grid_vals is not None:
+                                im_orig = np.array(frame, copy=True)
+                                im_orig = cv2.drawKeypoints(im_orig, blobs, im_orig, (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                                im_orig = cv2.drawKeypoints(im_orig, [blobs[i] for i in inliers_guess], im_orig, (255,255,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        #                         im_orig = cv2.drawKeypoints(im_orig, [blobs[i] for i in inliers], im_orig, (255,0,0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                                for idx in range(len(inliers)):
+                                    rect_idx = inliers[idx]
+                                    p0 = tuple([int(r) for r in (rect_pts[rect_idx])])
+                                    label = str(int(grid_vals[idx,0])) + ',' + str(int(grid_vals[idx,1]))
+                                    im_rect = cv2.putText(im_rect, label, p0, cv2.FONT_HERSHEY_PLAIN, 1, (255,255,255))
+                                    
+                                    p0_orig = tuple(int(r) for r in blobs[rect_idx].pt)
+                                    im_orig = cv2.putText(im_orig, label, p0_orig, cv2.FONT_HERSHEY_PLAIN, 1, (0,0,255))
+                                    im_orig = cv2.circle(im_orig, p0_orig, 5, (0,0,255),1)          
+                            cv2.imshow("Rectified dots", im_rect)
+                            if im_orig is not None:
+                                cv2.imshow("Grid points", im_orig)
+                                                      
+                        if grid_vals is not None:
+                            points2d = np.array([blobs[il].pt for il in inliers])
+                            results['points2d'] = points2d.tolist()
+                            return points2d, grid_vals, results
+        return None, None, results
                     
 
 def get_inlier_guess(rect_pts, horz_idx, vert_idx, lines1, lines2, dist=300, radius_multiple=5):
@@ -163,13 +168,15 @@ def fit_grid(rect_pts, inlier_guess ):
 def simplify_gcd(gcd, multiples):
     ch = False
 #     print multiples
-    least_mult = np.min(multiples[abs(multiples) > 0.5])
-    if least_mult > 1:
-        mmult = multiples / least_mult
-        if np.all(np.round(mmult) < .5 / least_mult):
-            gcd = gcd * least_mult
-            multiples = mmult
-            ch = True
+    mult_pos = abs(multiples) > 0.5
+    if np.any(mult_pos):
+        least_mult = np.min(multiples[mult_pos])
+        if least_mult > 1:
+            mmult = multiples / least_mult
+            if np.all(np.round(mmult) < .5 / least_mult):
+                gcd = gcd * least_mult
+                multiples = mmult
+                ch = True
     return gcd, multiples, ch
 
 def fit_grid_ransac(pts, N=0, tol=.1, grid_size=20, animate=False):
@@ -233,10 +240,14 @@ def fit_grid_ransac(pts, N=0, tol=.1, grid_size=20, animate=False):
     grid_spacing[1], grid_vals[:,1], _ = simplify_gcd(grid_spacing[1], grid_vals[:,1])
     
     # Recenter the grid
-    xvals, xcounts = np.unique(grid_vals[:,0], return_counts=True)
-    grid_vals[:,0] = grid_vals[:,0] - xvals[xcounts > 1][0]
-    yvals, ycounts = np.unique(grid_vals[:,1], return_counts=True)
-    grid_vals[:,1] = grid_vals[:,1] - yvals[ycounts > 1][0]
+    if len(inliers) > 0:
+        xvals, xcounts = np.unique(grid_vals[:,0], return_counts=True)
+        min_x_val = xvals[xcounts > 1][0] if np.any(xcounts > 1) else xvals[0]
+        grid_vals[:,0] = grid_vals[:,0] - min_x_val
+        
+        yvals, ycounts = np.unique(grid_vals[:,1], return_counts=True)
+        min_y_val = yvals[ycounts > 1][0] if np.any(ycounts > 1) else yvals[0]
+        grid_vals[:,1] = grid_vals[:,1] - min_y_val
     
     return inliers, grid_vals, grid_spacing
 
@@ -259,7 +270,7 @@ def get_rectification_ransac(line_hough, frame=[], N=500, tol=0.02):
     lines_g2 = np.flatnonzero(lines_g2_b)
     
     if lines_g1.size < 2 or lines_g2.size < 2:
-        return None, None, None
+        return None, None, None, None, None
     
 #     plt.scatter(line_hough[np.logical_not(np.logical_or(lines_g1_b, lines_g2_b)),0,0], line_hough[np.logical_not(np.logical_or(lines_g1_b, lines_g2_b)),0,1], c='b')
 #     plt.scatter(line_hough[lines_g1,0,0], line_hough[lines_g1,0,1], c='r')
@@ -274,7 +285,7 @@ def get_rectification_ransac(line_hough, frame=[], N=500, tol=0.02):
     
     animate = len(frame) > 0
         
-    for i in range(N):
+    for _ in range(N):
 #         ran_lines = np.random.choice(range(len(line_pairs)), 4, replace=False)
         ran_g1 = np.random.choice(lines_g1, 2, replace=False)
         if line_hough[ran_g1[0],0,1] < line_hough[ran_g1[1],0,1]:
@@ -370,7 +381,7 @@ def get_rectification_ransac(line_hough, frame=[], N=500, tol=0.02):
             vert_idx = cur_vert_idx
             H = cur_H
             uniq = len(uniq_horz_lines) + len(uniq_vert_lines)
-            print 'Update: ', H, ' horz=', len(horz_idx), ' vert=', len(vert_idx), ' uniq=', uniq
+#             print 'Update: ', H, ' horz=', len(horz_idx), ' vert=', len(vert_idx), ' uniq=', uniq
             if animate:
                 rect_frame = np.zeros(cur_frame.shape, dtype=cur_frame.dtype)
                 for j in range(len(lines1)):
@@ -385,10 +396,12 @@ def get_rectification_ransac(line_hough, frame=[], N=500, tol=0.02):
                 cv2.imshow("Rectified shape", rect_frame)
                 cv2.waitKey()
             
-    
-    lines1 = np.squeeze(cv2.perspectiveTransform(lines_first, H))
-    lines2 = np.squeeze(cv2.perspectiveTransform(lines_second, H))
-    return H, horz_idx, vert_idx, lines1, lines2
+    if len(H) > 0:
+        lines1 = np.squeeze(cv2.perspectiveTransform(lines_first, H))
+        lines2 = np.squeeze(cv2.perspectiveTransform(lines_second, H))
+        return H, horz_idx, vert_idx, lines1, lines2
+    else:
+        return None, None, None, None, None
             
             
         
