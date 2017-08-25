@@ -56,7 +56,7 @@ def get_video_cal(info): #filename, intrinsics):
                 results['distortion'] = distortion_coeffs.tolist()
                 results['rvec'] = rvec.tolist()
                 results['tvec'] = tvec.tolist()
-                results['ransac_inliers'] = inliers
+                results['ransac_inliers'] = inliers.tolist()
         
         outfile = os.path.join(outdir, 'ext_cal_%05d.yaml' % frame_idx)
         with open(outfile, 'w') as f:
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     
     intrinsics = get_intrinsics.get_intrinsics(filename=args.cal)
     if args.pool == 1:
-        map(lambda x: get_video_cal(x, intrinsics), args.files)
+        map(lambda x: get_video_cal((x, intrinsics)), args.files)
     else:
         pool = multiprocessing.Pool(args.pool)
         multiprocessing.log_to_stderr()
