@@ -6,10 +6,8 @@ import cv2
 import numpy as np
 
 def get_intrinsics(filename="/Users/reubena/Box Sync/eyegaze_data_ada_eating_study/camera-calib.json", video=None):
-    print 'Reading file', filename
     camera_matrix = None
     if os.path.exists(filename):
-        print 'Reading file', filename
         with open(filename, 'r') as f:
             jsondata = json.load(f)
         if "intrinsics_opencv" in jsondata and [k in jsondata["intrinsics_opencv"] for k in ["camera_matrix", "distortion_coeffs"]]:
