@@ -48,15 +48,15 @@ def get_video_cal(info): #filename, intrinsics):
             break
          
         points2d, grid_vals, results = gridDetector.get_grid(frame)
-        if points2d is not None:
-            points3d = real_positions.get_grid_points_3d(grid_vals)
-            success, rvec, tvec, inliers = cv2.solvePnPRansac(np.expand_dims(points3d, axis=0), np.expand_dims(points2d, axis=0), camera_matrix, distortion_coeffs)
-            if success:
-                results['camera_matrix'] = camera_matrix.tolist()
-                results['distortion'] = distortion_coeffs.tolist()
-                results['rvec'] = rvec.tolist()
-                results['tvec'] = tvec.tolist()
-                results['ransac_inliers'] = inliers.tolist()
+#         if points2d is not None:
+#             points3d = real_positions.get_grid_points_3d(grid_vals)
+#             success, rvec, tvec, inliers = cv2.solvePnPRansac(np.expand_dims(points3d, axis=0), np.expand_dims(points2d, axis=0), camera_matrix, distortion_coeffs)
+#             if success:
+#                 results['camera_matrix'] = camera_matrix.tolist()
+#                 results['distortion'] = distortion_coeffs.tolist()
+#                 results['rvec'] = rvec.tolist()
+#                 results['tvec'] = tvec.tolist()
+#                 results['ransac_inliers'] = inliers.tolist()
         
         outfile = os.path.join(outdir, 'ext_cal_%05d.yaml' % frame_idx)
         with open(outfile, 'w') as f:

@@ -5,6 +5,7 @@ import numpy as np
 import csv
 import time
 import calendar
+import yaml
 
 import file_info
 import robot_position
@@ -31,9 +32,9 @@ def load_metadata(filename):
     
     robot_pos = robot_position.RobotPosition(os.path.join(root_dir, '..', 'robot', 'trajdata_%s_export.csv' % gaze_index))
     
-#     print 'Time: %.1f-%.1f' % (timestamps[0], timestamps[-1])
-#     print 'Pos:  %.1f-%.1f' % (robot_pos.timestamps[0], robot_pos.timestamps[-1]) 
-#     print info
+    print 'Time: %.1f-%.1f' % (timestamps[0], timestamps[-1])
+    print 'Pos:  %.1f-%.1f' % (robot_pos.timestamps[0], robot_pos.timestamps[-1]) 
+    print info
 
 
     return timestamps, robot_pos
@@ -59,3 +60,18 @@ def load_stabilization(filename):
                 tfs.append( np.array([ [ s*ct, -s*st, tx],
                                        [ s*st,  s*ct, ty] ]) )
     return ref_frame, tfs
+
+def load_stable_extrinsics(filename):
+    filestem, _ = os.path.splitext(os.path.basename(filename))
+    calfile = os.path.join(os.path.dirname(filename), '..', 'extrinsic_calibration', filestem, 'all_stable_extrinsics.yaml')
+    with open(calfile, 'r') as f:
+        ext = yaml.load(f)
+#     print ext
+    return ext
+#         reader = csv.DictReader(f)
+#         for row in reader:
+#             ext[int(reader['ref_frame'])] = {
+#                     'rvec': np.array(reader[''])
+#                 }
+    
+    

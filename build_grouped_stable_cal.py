@@ -27,7 +27,7 @@ def build_all_extrinsics(videofile, intrinsics):
     cur_2d = []
     cur_3d = []
     
-    cal_data = []
+    cal_data = dict()
     
     while (os.path.exists(filename)):
         print 'Reading file: ', filename
@@ -38,9 +38,9 @@ def build_all_extrinsics(videofile, intrinsics):
                 # Finish the previos step, if appropriate
                 if len(cur_2d) > 2:
                     print 'Running solvePnP on', cur_3d.shape
-                    success, rvec, tvec, inliers = cv2.solvePnPRansac(cur_3d[None,:,:], cur_2d[None,:,:], camera_matrix, distortion_coeffs)
+                    success, rvec, tvec, inliers = cv2.solvePnPRansac(cur_3d[None,:,:], cur_2d[None,:,:], camera_matrix, distortion_coeffs, iterationsCount=cur_3d.shape[0])
                     if success:
-                        cal_data.append({ 'ref_frame': cur_ref, 'rvec': rvec.tolist(), 'tvec': tvec.tolist(), 'inliers': inliers.tolist() })
+                        cal_data[cur_ref] = { 'rvec': rvec.tolist(), 'tvec': tvec.tolist(), 'inliers': inliers.tolist() }
                 # Reset the data
                 cur_ref = ref_frame[frame_id]
                 cur_2d = np.empty([0,2])
@@ -50,7 +50,7 @@ def build_all_extrinsics(videofile, intrinsics):
                 # Append the latest data
                 points2d = np.array(data['points2d'])
                 print tfs[frame_id]
-                H = cv2.invertAffineTransform( tfs[frame_id] ) # Invert because Matlab's affine2d implicitly inverts
+                H = tfs[frame_id] #cv2.invertAffineTransform( tfs[frame_id] ) # Invert because Matlab's affine2d implicitly inverts
                 points2d_stab = cv2.transform(points2d[None,:,:], H)
                 points3d = real_positions.get_grid_points_3d(np.array(data['grid_vals']))
                 cur_2d = np.concatenate([cur_2d, points2d_stab[0,:,:]])
@@ -59,11 +59,12 @@ def build_all_extrinsics(videofile, intrinsics):
         frame_id = frame_id+1
         filename = os.path.join(cal_dir, 'ext_cal_%05d.yaml') % frame_id
         
-    outfile = os.path.join(cal_dir, 'all_stable_extrinsics.csv')
+    outfile = os.path.join(cal_dir, 'all_stable_extrinsics.yaml')
     with open(outfile, 'wb') as f:
-        writer = csv.DictWriter(f, ['ref_frame', 'rvec', 'tvec', 'inliers'])
-        writer.writeheader()
-        map(writer.writerow, cal_data)
+#         writer = csv.DictWriter(f, ['ref_frame', 'rvec', 'tvec', 'inliers'])
+#         writer.writeheader()
+#         map(writer.writerow, cal_data)
+        yaml.dump(cal_data, f)
         
 if __name__ == "__main__":
     if len(sys.argv) < 2:
