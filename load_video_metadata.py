@@ -31,10 +31,31 @@ def load_metadata(filename):
     
     robot_pos = robot_position.RobotPosition(os.path.join(root_dir, '..', 'robot', 'trajdata_%s_export.csv' % gaze_index))
     
-    print 'Time: %.1f-%.1f' % (timestamps[0], timestamps[-1])
-    print 'Pos:  %.1f-%.1f' % (robot_pos.timestamps[0], robot_pos.timestamps[-1]) 
-    print info
+#     print 'Time: %.1f-%.1f' % (timestamps[0], timestamps[-1])
+#     print 'Pos:  %.1f-%.1f' % (robot_pos.timestamps[0], robot_pos.timestamps[-1]) 
+#     print info
+
+
     return timestamps, robot_pos
     
     
-    
+def load_stabilization(filename):
+    root_dir = os.path.dirname(filename)
+    trial_name, _ = os.path.splitext(os.path.basename(filename))
+    stab_file = os.path.join(root_dir, '..', 'stabilize', '%s_stab.csv' % trial_name)
+    ref_frame = [];
+    tfs = [];
+    if os.path.exists(stab_file):
+        with open(stab_file, 'r') as stab:
+            stab_reader = csv.DictReader(stab)
+            for row in stab_reader:
+                ref_frame.append(int(row['ref_frame']))
+                tx = float(row['tx'])
+                ty = float(row['ty'])
+                th = float(row['theta'])
+                s = float(row['s'])
+                ct = np.cos(th)
+                st = np.sin(th)
+                tfs.append( np.array([ [ s*ct, -s*st, tx],
+                                       [ s*st,  s*ct, ty] ]) )
+    return ref_frame, tfs

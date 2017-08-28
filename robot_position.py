@@ -17,7 +17,7 @@ class RobotPosition:
                 timestamps.append(float(row['time']))
                 data.append([ float(row[k]) for k in RobotPosition.keys])
         self.timestamps = np.array(timestamps)
-        self.data = np.array(data).reshape([len(timestamps), -1, 3])
+        self.data = np.array(data).reshape([len(timestamps), -1, 3]) + np.array([0, 0, 0.0395]) # offset btw optical plate and robot base
         self.interpolater = scipy.interpolate.interp1d(self.timestamps, self.data, axis=0, copy=False, assume_sorted=True)
         
     def get_data(self, timestamp):
