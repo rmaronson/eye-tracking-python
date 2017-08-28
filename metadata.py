@@ -26,9 +26,9 @@ def load_metadata(filename):
     
     timestamps = timestamps - timestamps[0] + calendar.timegm(time.strptime(info['Start Date'] + info['Start Time'], '%d.%m.%Y%H:%M:%S'))+4*60*60 # 4 hour time zone offset
     
-    offset_file = os.path.join(root_dir, '..', 'gaze', gaze_index, 'offset.txt')
-    if os.path.exists(offset_file):
-        timestamps = timestamps + np.loadtxt(offset_file)
+#     offset_file = os.path.join(root_dir, '..', 'gaze', gaze_index, 'offset.txt')
+#     if os.path.exists(offset_file):
+#         timestamps = timestamps + np.loadtxt(offset_file)
     
     robot_pos = robot_position.RobotPosition(os.path.join(root_dir, '..', 'robot', 'trajdata_%s_export.csv' % gaze_index))
     
@@ -38,6 +38,21 @@ def load_metadata(filename):
 
 
     return timestamps, robot_pos
+
+def save_offset(filename, offset):
+    root_dir = os.path.dirname(filename)
+    gaze_index = file_info.get_index(os.path.basename(filename))
+    offset_file = os.path.join(root_dir, '..', 'gaze', gaze_index, 'offset.txt')
+    np.savetxt(offset_file, np.array([offset]))
+    
+def load_offset(filename):
+    root_dir = os.path.dirname(filename)
+    gaze_index = file_info.get_index(os.path.basename(filename))
+    offset_file = os.path.join(root_dir, '..', 'gaze', gaze_index, 'offset.txt')
+    if os.path.exists(offset_file):
+        return np.loadtxt(offset_file)
+    else:
+        return 0.
     
     
 def load_stabilization(filename):
