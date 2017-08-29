@@ -88,5 +88,12 @@ def load_stable_extrinsics(filename):
 #             ext[int(reader['ref_frame'])] = {
 #                     'rvec': np.array(reader[''])
 #                 }
+
+def load_extrinsics_data(filename, ref_id):
+    filestem, _ = os.path.splitext(os.path.basename(filename))
+    cal_dir = os.path.join(os.path.dirname(filename), '..', 'extrinsic_calibration', filestem)
+    p2_file = os.path.join(cal_dir, 'cal_points_%05d_2d.npy' % ref_id)
+    grid_file = os.path.join(cal_dir, 'cal_points_%05d_grid.npy' % ref_id)
     
+    return np.load(p2_file), np.load(grid_file)
     

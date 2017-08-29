@@ -89,10 +89,33 @@ class VideoExport:
         return frame
     
     def adjust_time(self, init_offset=0.):
+        def shift_rvec(rvec, shift_rvec):
+            return cv2.Rodrigues( np.dot(cv2.Rodrigues(shift_rvec)[0], cv2.Rodrigues(rvec)[0]) )[0]
+        def shift_grid(ref, offset):
+            print 'Rerunning with shift=', offset
+            points2d, grid = metadata.load_extrinsics_data(self.filename, ref)
+            points3d = real_positions.get_grid_points_3d(grid + offset)
+            exclusions = self.ext_cal[ref]['exclusions'] if 'exclusions' in self.ext_cal[ref] else []
+            success, rvec, tvec, inliers = cv2.solvePnPRansac(np.delete(points3d, exclusions, axis=0)[None,:,:], 
+                                                              np.delete(points2d, exclusions,axis=0)[None,:,:], 
+                                                              self.camera_matrix, self.distortion_coeffs, 
+                                                              iterationsCount=max(100,points3d.shape[0]-len(exclusions)) )
+            if success:
+                print 'Reran calibration'
+                self.ext_cal[ref] = { 'rvec': rvec.tolist(), 'tvec': tvec.tolist(), 'inliers': inliers.tolist(), 'exclusions': exclusions }
+            else:
+                print 'Failed to converge'
+        
+        MODE_OFFSET = 'offset'
+        MODE_MANUAL = 'manual'
+        MODE_GRID = 'grid'
+        MODES = [MODE_OFFSET, MODE_MANUAL, MODE_GRID]
         idx = 0
         offset = init_offset
         step = 0.5
+        ang_step = np.pi/36
         play = False
+        mode = MODES[0]
         while True:
             frame = self.get(idx, offset)
             cv2.imshow("Frame", frame)
@@ -102,26 +125,93 @@ class VideoExport:
                 if idx not in self.frames:
                     idx = idx-1
                     play = False
-                    break
+                    continue
                 key = cv2.waitKey(10)
             else:
                 key = cv2.waitKey()
+                
             if key == 2 and idx > 0: # left arrow
                 idx = idx-1
             elif key == 3 and idx < len(self.frames): # right arrow
                 idx = idx+1
+            elif key == 0 and mode == MODE_MANUAL: # up arrow
+                ang_step = ang_step * 2
+            elif key == 1 and mode == MODE_MANUAL:
+                ang_step = ang_step / 2 
+                
+                
             elif key == 119: # w
-                step = step * 2
-                print 'Step:', step
+                if mode == MODE_OFFSET:
+                    step = step * 2
+                    print 'Step:', step
+                elif mode == MODE_MANUAL:
+                    ext = self.ext_cal[self.ref_frame[idx]]
+                    ext['rvec'] = shift_rvec(np.array(ext['rvec']), ang_step*np.array([1,0,0]))
+                elif mode == MODE_GRID:
+                    shift_grid(self.ref_frame[idx], np.array([-1,0]))
             elif key == 115: # s
-                step = step / 2
-                print 'Step:', step
+                if mode == MODE_OFFSET:
+                    step = step / 2
+                    print 'Step:', step
+                elif mode == MODE_MANUAL:
+                    ext = self.ext_cal[self.ref_frame[idx]]
+                    ext['rvec'] = shift_rvec(np.array(ext['rvec']), ang_step*np.array([-1,0,0]))
+                elif mode == MODE_GRID:
+                    shift_grid(self.ref_frame[idx], np.array([1,0]))
             elif key == 97: # a
-                offset = offset - step
-                print 'Offset:', offset
+                if mode == MODE_OFFSET:
+                    offset = offset - step
+                    print 'Offset:', offset
+                elif mode == MODE_MANUAL:
+                    ext = self.ext_cal[self.ref_frame[idx]]
+                    ext['rvec'] = shift_rvec(np.array(ext['rvec']), ang_step*np.array([0,-1,0]))
+                elif mode == MODE_GRID:
+                    shift_grid(self.ref_frame[idx], np.array([0,1]))
             elif key == 100: # d
-                offset = offset + step
-                print 'Offset:', offset
+                if mode == MODE_OFFSET:
+                    offset = offset + step
+                    print 'Offset:', offset
+                elif mode == MODE_MANUAL:
+                    ext = self.ext_cal[self.ref_frame[idx]]
+                    ext['rvec'] = shift_rvec(np.array(ext['rvec']), ang_step*np.array([0,1,0]))
+                elif mode == MODE_GRID:
+                    shift_grid(self.ref_frame[idx], np.array([0,-1]))
+                    
+            elif key == 113: # Q
+                mode = MODES[ (MODES.index(mode) + 1) % len(MODES)]
+                print 'Set mode:', mode
+            elif key == 101: # E
+                mode = MODES[ (MODES.index(mode) - 1) % len(MODES)]
+                print 'Set mode:', mode
+                
+            elif key == 102: # f
+                # Rerun the calibration for this frame
+                ref = self.ref_frame[idx]
+                points2d, grid = metadata.load_extrinsics_data(self.filename, ref)
+                points3d = real_positions.get_grid_points_3d(grid)
+                exclusions = self.ext_cal[ref]['exclusions'] if 'exclusions' in self.ext_cal[ref] else []
+                exclusions = exclusions + self.ext_cal[ref]['inliers']
+                success, rvec, tvec, inliers = cv2.solvePnPRansac(np.delete(points3d, exclusions, axis=0)[None,:,:], 
+                                                                  np.delete(points2d, exclusions,axis=0)[None,:,:], 
+                                                                  self.camera_matrix, self.distortion_coeffs, 
+                                                                  iterationsCount=max(100, points3d.shape[0]-len(exclusions)))
+                if success:
+                    print 'Reran calibration (excluded %d elements)' % len(exclusions)
+                    self.ext_cal[ref] = { 'rvec': rvec.tolist(), 'tvec': tvec.tolist(), 'inliers': inliers.tolist(), 'exclusions': exclusions }
+            elif key == 114: # r
+                # Rerun the calibration for this frame
+                ref = self.ref_frame[idx]
+                points2d, grid = metadata.load_extrinsics_data(self.filename, ref)
+                points3d = real_positions.get_grid_points_3d(grid)
+                exclusions = []
+                success, rvec, tvec, inliers = cv2.solvePnPRansac(np.delete(points3d, exclusions, axis=0)[None,:,:], 
+                                                                  np.delete(points2d, exclusions,axis=0)[None,:,:], 
+                                                                  self.camera_matrix, self.distortion_coeffs, 
+                                                                  iterationsCount=max(100, points3d.shape[0]-len(exclusions)))
+                if success:
+                    print 'Reran calibration (excluded %d elements)' % len(exclusions)
+                    self.ext_cal[ref] = { 'rvec': rvec.tolist(), 'tvec': tvec.tolist(), 'inliers': inliers.tolist(), 'exclusions': exclusions }
+                
             elif key == 27: # esc
                 break
             elif key == 32: # space

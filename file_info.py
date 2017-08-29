@@ -9,7 +9,7 @@ mapping = {
     'p10': {
         'gaze': ['%03d' % i for i in range(19)],
         'video': ['%s%d' % (s,d) for s,d in zip(build_labels('bs') , range(1,6)*2)] +
-            ['%s%d' % (s,d) for s,d in zip(build_labels('t') , range(1,5))] +
+            ['%s%d' % (s,d) for s,d in zip(build_labels('t') , range(1,6))] +
             ['%s%d' % (s,d) for s,d in zip(build_labels('a') , range(1,6))]
         }
     }
